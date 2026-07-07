@@ -24,32 +24,28 @@ export function useBankState() {
     checkSession();
   }, []);
 
-  const checkSession = () => {
-    const hash = localStorage.getItem(HASH_KEY);
+  const checkSession = async () => {
+  const hasInviteToken = new URLSearchParams(window.location.search).has('invite');
+  try {
+    const res = await fetch(`${API_URL}?action=status`);
+    const data = await res.json();
+    if (!data.hasAccount) { setAuthState('setup'); return; }
+    setHourlyRate(data.hourlyRate ?? 100);
+    setBonusBalance(data.bonusBalance ?? 0);
+
     const expiry = localStorage.getItem(EXPIRY_KEY);
-    const start = localStorage.getItem(START_KEY);
-    const rate = localStorage.getItem(RATE_KEY);
-
-    if (rate) {
-      setHourlyRate(Number(rate));
-    } else {
-      localStorage.setItem(RATE_KEY, '100');
-    }
-
-    if (!hash) {
-      setAuthState('setup');
-      return;
-    }
-
-    if (!expiry || new Date(expiry).getTime() < Date.now()) {
+    if (hasInviteToken || !expiry || new Date(expiry).getTime() < Date.now()) {
       localStorage.removeItem(EXPIRY_KEY);
       setAuthState('login');
       return;
     }
-
-    setStartTime(start);
+    setStartTime(data.startTime);
+    setTransfer(data.transfer ?? null);
     setAuthState('dashboard');
-  };
+  } catch {
+    setAuthState('login');
+  }
+};
 
   const setupAccount = async (password: string) => {
     const hash = await hashPassword(password);
